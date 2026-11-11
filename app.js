@@ -148,6 +148,26 @@ function segment(img, thr, minArea, dropBg) {
   return { w, h, label: cur, regions, baseCanvas: base, lineCanvas, outlineCanvas, masks: new Map(), tints: new Map() };
 }
 
+// Picks the line/fill cut-off from the image itself: lines are the darkest mode of the brightness
+// histogram, and the cut-off sits in the valley after it (so mid-tone fills are not mistaken for lines).
+function autoThreshold(img) {
+  const k = Math.min(1, 800 / Math.max(img.width, img.height));
+  const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(img.width * k)); c.height = Math.max(1, Math.round(img.height * k));
+  const x = c.getContext('2d', { willReadFrequently: true });
+  x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height);
+  const d = x.getImageData(0, 0, c.width, c.height).data, raw = new Float64Array(256), n = c.width * c.height;
+  for (let i = 0; i < d.length; i += 4) raw[(d[i] * 77 + d[i + 1] * 150 + d[i + 2] * 29) >> 8]++;
+  const h = raw.map((_, i) => { let s = 0, m = 0; for (let j = Math.max(0, i - 3); j <= Math.min(255, i + 3); j++) { s += raw[j]; m++; } return s / m; });
+  let peak = -1;
+  for (let i = 1; i < 200 && peak < 0; i++) {
+    if (h[i] >= h[i - 1] && h[i] > h[i + 1]) { let mass = 0; for (let j = Math.max(0, i - 10); j <= i + 10; j++) mass += raw[j]; if (mass > n * 0.004) peak = i; }
+  }
+  if (peak < 0) peak = h[0] >= h[1] ? 0 : 20;
+  let v = peak;
+  while (v < 200 && h[v + 1] <= h[v]) v++;
+  return Math.max(50, Math.min(170, v));
+}
+
 function maskOf(id) {
   let m = seg.masks.get(id); if (m) return m;
   const r = seg.regions[id - 1], bw = r.x1 - r.x0 + 1, bh = r.y1 - r.y0 + 1;
@@ -704,7 +724,7 @@ $('#fileNew').onchange = async e => {
     const c = await pickPatternCanvas(file); if (!c) return;
     const blob = await canvasToBlob(c);
     const p = {
-      id: uid(), name: file.name.replace(/\.[^.]+$/, '') || 'My quilt', pattern: blob, thr: 170, minArea: 60, dropBg: true, patCm: 0,
+      id: uid(), name: file.name.replace(/\.[^.]+$/, '') || 'My quilt', pattern: blob, thr: autoThreshold(c), minArea: 60, dropBg: true, patCm: 0,
       fabrics: [], variants: [{ id: 'a', name: 'Option A', assign: {} }], cur: 'a', updated: Date.now(),
     };
     await DB.put(p); await openProject(p);
