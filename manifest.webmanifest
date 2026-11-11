@@ -1,0 +1,14 @@
+{
+  "name": "Quilt Planner – EPP fabric planner",
+  "short_name": "Quilt Planner",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#faf6f1",
+  "theme_color": "#7a3e5c",
+  "icons": [
+    { "src": "icons/192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

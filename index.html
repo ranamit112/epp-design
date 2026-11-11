@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#7a3e5c">
+<title>Quilt Planner</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/192.png">
+<link rel="apple-touch-icon" href="icons/192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- HOME -->
+<section id="home" class="screen">
+  <header class="bar"><h1>Quilt Planner</h1></header>
+  <main class="home-body">
+    <p class="muted">Add your EPP pattern (photo, screenshot or PDF page), then try fabrics and colours on each shape.</p>
+    <div id="projects" class="projects"></div>
+    <label class="btn primary big" for="fileNew">＋ New pattern</label>
+    <input id="fileNew" type="file" accept="image/*,application/pdf" hidden>
+  </main>
+</section>
+
+<!-- EDITOR -->
+<section id="editor" class="screen hidden">
+  <header class="bar">
+    <button id="btnBack" class="icon" title="Projects">←</button>
+    <div id="title" class="title">Pattern</div>
+    <button id="btnUndo" class="icon" title="Undo">↶</button>
+    <button id="btnCompare" class="icon" title="Compare options">⧉</button>
+    <button id="btnMenu" class="icon" title="More">⋯</button>
+  </header>
+  <div id="vbar" class="vbar"></div>
+  <div id="stage">
+    <canvas id="view"></canvas>
+    <div id="toast" class="toast hidden"></div>
+    <div class="zoomctl">
+      <button id="zIn" class="icon round">＋</button>
+      <button id="zOut" class="icon round">－</button>
+      <button id="zFit" class="icon round" title="Fit">⤢</button>
+    </div>
+  </div>
+  <div id="selbar" class="selbar">
+    <span id="selInfo" class="muted">Tap shapes to select</span>
+    <button data-sel="color">Same pattern colour</button>
+    <button data-sel="shape">Same shape</button>
+    <button data-sel="fabric">Same fabric</button>
+    <button data-sel="unassigned">Unassigned</button>
+    <button data-sel="all">All</button>
+    <button data-sel="none">None</button>
+  </div>
+  <div id="sheet" class="sheet">
+    <nav class="tabs">
+      <button data-tab="fabrics" class="on">Fabrics</button>
+      <button data-tab="adjust">Adjust</button>
+      <button data-tab="pattern">Pattern</button>
+    </nav>
+
+    <div class="panel" id="tab-fabrics">
+      <div class="addrow">
+        <button id="addColor" class="btn">🎨 Colour</button>
+        <label class="btn" for="fileCam">📷 Camera</label>
+        <label class="btn" for="fileGal">🖼 Gallery</label>
+        <input id="fileCam" type="file" accept="image/*" capture="environment" hidden>
+        <input id="fileGal" type="file" accept="image/*" hidden>
+      </div>
+      <div id="tray" class="tray"></div>
+      <p class="muted small">Select shapes, then tap a fabric to apply it. Tap a fabric with nothing selected to adjust it.</p>
+    </div>
+
+    <div class="panel hidden" id="tab-adjust">
+      <div class="row"><label>Rotate fabric in selected shapes <b id="rotVal">0°</b></label></div>
+      <input id="rot" type="range" min="-180" max="180" step="1" value="0">
+      <div class="btnrow">
+        <button data-rot="-90">−90°</button><button data-rot="-15">−15°</button><button data-rot="-1">−1°</button>
+        <button data-rot="1">+1°</button><button data-rot="15">+15°</button><button data-rot="90">+90°</button>
+      </div>
+      <div id="scaleBox">
+        <div class="row"><label>Fabric size (whole fabric) <b id="scaleVal"></b></label></div>
+        <input id="scale" type="range" min="0" max="1000" step="1" value="500">
+        <div class="row cm">
+          <label>Real width of fabric photo <input id="fabCm" type="number" min="0.5" step="0.5" inputmode="decimal" placeholder="cm"> cm</label>
+          <span class="muted small" id="cmHint"></span>
+        </div>
+      </div>
+      <div class="btnrow">
+        <button id="btnMove" class="toggle">✥ Drag fabric inside shape</button>
+        <button id="btnCenter">Re-centre</button>
+        <button id="btnClear">Remove fabric</button>
+      </div>
+      <div class="btnrow">
+        <button id="btnEditFab">Edit colour</button>
+        <button id="btnDelFab" class="danger">Delete fabric</button>
+      </div>
+    </div>
+
+    <div class="panel hidden" id="tab-pattern">
+      <div class="row"><label>Line darkness threshold <b id="thrVal"></b></label></div>
+      <input id="thr" type="range" min="40" max="240" step="1">
+      <div class="row"><label>Ignore specks smaller than <b id="minVal"></b> px</label></div>
+      <input id="minArea" type="range" min="5" max="600" step="5">
+      <div class="btnrow">
+        <button id="btnOutline" class="toggle">Show detected shapes</button>
+        <button id="btnBg" class="toggle">Ignore outside area</button>
+      </div>
+      <div class="row cm">
+        <label>Real width of pattern image <input id="patCm" type="number" min="1" step="0.5" inputmode="decimal" placeholder="cm"> cm</label>
+      </div>
+      <p class="muted small">If shapes merge or split wrongly, tweak the threshold. Real widths let you set fabric size in true scale.</p>
+      <div id="shapeCount" class="muted small"></div>
+    </div>
+  </div>
+</section>
+
+<!-- DIALOGS -->
+<dialog id="dlgColor">
+  <h3>Pick a colour</h3>
+  <div class="wheelwrap"><canvas id="wheel" width="240" height="240"></canvas><div id="wheelDot"></div></div>
+  <label class="row">Lightness <input id="val" type="range" min="0" max="100" value="100"></label>
+  <div id="palette" class="palette"></div>
+  <div class="row"><span id="colPrev" class="prev"></span><input id="hex" type="text" value="#ffffff" maxlength="7"></div>
+  <div class="btnrow"><button id="colCancel">Cancel</button><button id="colOk" class="primary">Use colour</button></div>
+</dialog>
+
+<dialog id="dlgPdf">
+  <h3>Choose PDF page</h3>
+  <canvas id="pdfPrev"></canvas>
+  <div class="row"><button id="pdfPrevBtn">‹</button> Page <b id="pdfNo">1</b> / <b id="pdfN">1</b> <button id="pdfNextBtn">›</button></div>
+  <div class="btnrow"><button id="pdfCancel">Cancel</button><button id="pdfOk" class="primary">Use this page</button></div>
+</dialog>
+
+<dialog id="dlgMenu">
+  <h3>Options</h3>
+  <div class="menu">
+    <button data-m="rename-v">Rename this option</button>
+    <button data-m="dup-v">Duplicate this option</button>
+    <button data-m="del-v" class="danger">Delete this option</button>
+    <button data-m="rename-p">Rename project</button>
+    <button data-m="export">Save picture of this option</button>
+    <button data-m="replace">Replace pattern image…</button>
+    <button data-m="del-p" class="danger">Delete project</button>
+    <button data-m="close">Close</button>
+  </div>
+  <input id="fileReplace" type="file" accept="image/*,application/pdf" hidden>
+</dialog>
+
+<dialog id="dlgCompare" class="full">
+  <div class="bar"><button id="cmpClose" class="icon">✕</button><div class="title">Compare options</div></div>
+  <div id="cmpGrid" class="cmpgrid"></div>
+</dialog>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
