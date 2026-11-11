@@ -183,11 +183,24 @@ function maskOf(id) {
 }
 function tintOf(id) {
   let t = seg.tints.get(id); if (t) return t;
-  const m = maskOf(id);
-  t = document.createElement('canvas'); t.width = m.width; t.height = m.height;
-  const x = t.getContext('2d');
-  x.drawImage(m, 0, 0); x.globalCompositeOperation = 'source-in';
-  x.fillStyle = 'rgba(0,120,255,0.28)'; x.fillRect(0, 0, t.width, t.height);
+  // selection = a coloured border just inside the shape's edge (the fabric itself is left untouched)
+  const m = maskOf(id), bw = m.width, bh = m.height;
+  const a = m.getContext('2d').getImageData(0, 0, bw, bh).data;
+  let cur = new Uint8Array(bw * bh);
+  for (let i = 0; i < cur.length; i++) cur[i] = a[i * 4 + 3] ? 1 : 0;
+  const inside = cur.slice();
+  for (let pass = 0; pass < 6; pass++) {          // erode 6px; the ring is what was removed
+    const nxt = new Uint8Array(bw * bh);
+    for (let y = 1; y < bh - 1; y++) for (let xx = 1; xx < bw - 1; xx++) {
+      const i = y * bw + xx;
+      if (cur[i] && cur[i - 1] && cur[i + 1] && cur[i - bw] && cur[i + bw]) nxt[i] = 1;
+    }
+    cur = nxt;
+  }
+  t = document.createElement('canvas'); t.width = bw; t.height = bh;
+  const x = t.getContext('2d'), im = x.createImageData(bw, bh), o = im.data;
+  for (let i = 0; i < inside.length; i++) if (inside[i] && !cur[i]) { o[i * 4] = 0; o[i * 4 + 1] = 110; o[i * 4 + 2] = 255; o[i * 4 + 3] = 255; }
+  x.putImageData(im, 0, 0);
   seg.tints.set(id, t);
   return t;
 }
