@@ -41,7 +41,7 @@ button.round{background:var(--panel);color:var(--ink);border:1px solid var(--lin
 .selbar button{white-space:nowrap;min-height:34px;padding:4px 10px;font-size:14px}
 .selbar span{white-space:nowrap;margin-right:4px;font-size:14px}
 
-.sheet{flex:none;background:var(--panel);border-top:1px solid var(--line);max-height:36vh;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom)}
+.sheet{flex:none;background:var(--panel);border-top:1px solid var(--line);max-height:34vh;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom)}
 .tabs{display:flex}
 .tabs button{flex:1;border:0;border-radius:0;border-bottom:3px solid transparent;background:transparent}
 .tabs button.on{border-bottom-color:var(--accent);font-weight:600}
@@ -77,3 +77,20 @@ dialog.full[open]{display:flex;flex-direction:column}
 .cmpcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;cursor:pointer}
 .cmpcard canvas{width:100%;display:block;background:#fff}
 .cmpcard div{padding:6px 10px;font-weight:600}
+
+/* panel can fold away (phone) to give the pattern the whole height */
+.tabs .fold{flex:0 0 52px;font-size:18px}
+.sheet.collapsed .panel{display:none}
+.vbar{padding:4px 8px}.vbar button{min-height:30px;padding:2px 12px}
+.selbar{padding:4px 8px}.selbar button{min-height:30px}
+.bar{min-height:46px;padding-top:2px;padding-bottom:2px}
+
+/* wide screens / foldables: panel on the right, full height */
+#editor.side{display:grid;grid-template-columns:minmax(0,1fr) clamp(320px,38vw,460px);grid-template-rows:auto auto minmax(0,1fr) auto;
+  grid-template-areas:"hdr hdr" "vbar vbar" "stage sheet" "selbar sheet"}
+#editor.side>.bar{grid-area:hdr}
+#editor.side>.vbar{grid-area:vbar}
+#editor.side>#stage{grid-area:stage}
+#editor.side>.selbar{grid-area:selbar}
+#editor.side>.sheet{grid-area:sheet;max-height:none;min-height:0;border-top:0;border-left:1px solid var(--line)}
+#editor.side .panel{flex:1;min-height:0}

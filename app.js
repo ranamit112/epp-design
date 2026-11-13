@@ -281,17 +281,30 @@ function draw() {
   if (showOutline) vctx.drawImage(seg.outlineCanvas, 0, 0);
   for (const id of sel) { const r = seg.regions[id - 1]; if (r) vctx.drawImage(tintOf(id), r.x0, r.y0); }
 }
+// zoom to the detected shapes (not the whole page), so margins around the pattern don't waste screen space
 function fitView() {
   const W = view.clientWidth, H = view.clientHeight;
-  V.s = Math.min(W / seg.w, H / seg.h) * 0.96;
-  V.x = (W - seg.w * V.s) / 2; V.y = (H - seg.h * V.s) / 2;
+  let x0 = 0, y0 = 0, x1 = seg.w, y1 = seg.h;
+  if (seg.regions.length) {
+    x0 = Math.min(...seg.regions.map(r => r.x0)); y0 = Math.min(...seg.regions.map(r => r.y0));
+    x1 = Math.max(...seg.regions.map(r => r.x1)); y1 = Math.max(...seg.regions.map(r => r.y1));
+  }
+  const m = 0.02 * Math.max(x1 - x0, y1 - y0), bw = x1 - x0 + 2 * m, bh = y1 - y0 + 2 * m;
+  V.s = Math.min(W / bw, H / bh);
+  V.x = (W - bw * V.s) / 2 - (x0 - m) * V.s; V.y = (H - bh * V.s) / 2 - (y0 - m) * V.s;
   redraw();
 }
 function zoomAt(cx, cy, f) {
   const ns = Math.min(Math.max(V.s * f, 0.05), 12), k = ns / V.s;
   V.x = cx - (cx - V.x) * k; V.y = cy - (cy - V.y) * k; V.s = ns; redraw();
 }
-new ResizeObserver(() => { if (seg) redraw(); }).observe($('#stage'));
+let lastW = 0, lastH = 0;
+new ResizeObserver(() => {      // keep the same part of the pattern centred when the canvas area changes size
+  const W = view.clientWidth, H = view.clientHeight;
+  if (lastW && seg) { V.x += (W - lastW) / 2; V.y += (H - lastH) / 2; }
+  lastW = W; lastH = H;
+  if (seg) redraw();
+}).observe($('#stage'));
 const dirty = () => { docDirty = true; redraw(); scheduleSave(); };
 
 // gestures: 1 finger = tap/pan (or drag the fabric in move mode), 2 fingers = pinch zoom + pan
@@ -484,11 +497,37 @@ function refreshUI() {
   $('#title').textContent = P.name;
 }
 
-$$('.tabs button').forEach(b => b.onclick = () => {
-  $$('.tabs button').forEach(x => x.classList.toggle('on', x === b));
+$$('.tabs button[data-tab]').forEach(b => b.onclick = () => {
+  const sheet = $('#sheet');
+  // tapping the open tab again folds the panel away to give the pattern the full height
+  if (b.classList.contains('on') && !sideLayout) { setCollapsed(!sheet.classList.contains('collapsed')); return; }
+  $$('.tabs button[data-tab]').forEach(x => x.classList.toggle('on', x === b));
   $$('.panel').forEach(p => p.classList.toggle('hidden', p.id !== 'tab-' + b.dataset.tab));
-  requestAnimationFrame(() => seg && redraw());
+  setCollapsed(false);
 });
+function setCollapsed(c) {
+  $('#sheet').classList.toggle('collapsed', c);
+  $('#sheetToggle').textContent = c ? '▴' : '▾';
+}
+$('#sheetToggle').onclick = () => setCollapsed(!$('#sheet').classList.contains('collapsed'));
+
+// panel position: bottom (phone) or right (wide / unfolded foldable). "auto" picks by screen shape.
+let sideLayout = false;
+const getPanelPref = () => { try { return localStorage.getItem('panelPos') || 'auto'; } catch { return 'auto'; } };
+function applyLayout() {
+  const pref = getPanelPref(), w = innerWidth, h = innerHeight;
+  const side = pref === 'right' || (pref === 'auto' && (w >= 700 || (w >= 520 && w > h * 1.1)));
+  if (side !== sideLayout || !applyLayout.done) {
+    sideLayout = side; applyLayout.done = true;
+    $('#editor').classList.toggle('side', side);
+    if (side) setCollapsed(false);
+    $('#sheetToggle').classList.toggle('hidden', side);
+    if (seg) requestAnimationFrame(fitView);
+  }
+  const lab = { auto: 'Auto', bottom: 'Bottom', right: 'Right side' }[pref];
+  const b = $('[data-m="layout"]'); if (b) b.textContent = `Panel position: ${lab} (tap to change)`;
+}
+addEventListener('resize', applyLayout);
 
 // rotation
 const rotInput = $('#rot');
@@ -670,6 +709,11 @@ $('#dlgMenu').addEventListener('click', async e => {
   const dlg = $('#dlgMenu'); const v = curVariant();
   if (m === 'close') return dlg.close();
   if (m === 'replace') { $('#fileReplace').click(); return; }
+  if (m === 'layout') {
+    const next = { auto: 'right', right: 'bottom', bottom: 'auto' }[getPanelPref()];
+    try { localStorage.setItem('panelPos', next); } catch {}
+    applyLayout(); return;
+  }
   dlg.close();
   if (m === 'rename-v') { const n = prompt('Name for this option', v.name); if (n) { v.name = n; renderVariants(); scheduleSave(); } }
   if (m === 'dup-v') addVariant(true);
@@ -797,6 +841,7 @@ async function renderHome() {
 /* -------------------------------------------------------------------- boot */
 (async () => {
   await DB.open();
+  applyLayout();
   renderHome();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   navigator.storage && navigator.storage.persist && navigator.storage.persist();
