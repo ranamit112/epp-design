@@ -68,7 +68,25 @@
         <input id="fileGal" type="file" accept="image/*" hidden>
       </div>
       <div id="tray" class="tray"></div>
-      <p class="muted small">Select shapes, then tap a fabric to apply it. Tap a fabric with nothing selected to adjust it.</p>
+      <div id="fabBox" class="fabbox hidden">
+        <button id="btnFabSettings" class="toggle">⚙ Fabric settings (size, delete) ▸</button>
+        <div id="fabSettings" class="hidden">
+          <div id="scaleBox">
+            <div class="row"><label>Fabric size (applies to every shape using it) <b id="scaleVal"></b></label></div>
+            <input id="scale" type="range" min="0" max="1000" step="1" value="500">
+            <div class="row cm">
+              <label>Real width of fabric photo <input id="fabCm" type="number" inputmode="decimal"> <span class="unitLabel">cm</span></label>
+              <span class="seg"><button data-unit="cm">cm</button><button data-unit="in">in</button></span>
+            </div>
+            <div class="muted small" id="cmHint"></div>
+          </div>
+          <div class="btnrow">
+            <button id="btnEditFab">Edit colour</button>
+            <button id="btnDelFab" class="danger">Delete fabric</button>
+          </div>
+        </div>
+      </div>
+      <p class="muted small">Select shapes, then tap a fabric to apply it. Tap a fabric with nothing selected to change its settings.</p>
     </div>
 
     <div class="panel hidden" id="tab-adjust">
@@ -78,22 +96,10 @@
         <button data-rot="-90">−90°</button><button data-rot="-15">−15°</button><button data-rot="-1">−1°</button>
         <button data-rot="1">+1°</button><button data-rot="15">+15°</button><button data-rot="90">+90°</button>
       </div>
-      <div id="scaleBox">
-        <div class="row"><label>Fabric size (whole fabric) <b id="scaleVal"></b></label></div>
-        <input id="scale" type="range" min="0" max="1000" step="1" value="500">
-        <div class="row cm">
-          <label>Real width of fabric photo <input id="fabCm" type="number" min="0.5" step="0.5" inputmode="decimal" placeholder="cm"> cm</label>
-          <span class="muted small" id="cmHint"></span>
-        </div>
-      </div>
       <div class="btnrow">
         <button id="btnMove" class="toggle">✥ Drag fabric inside shape</button>
         <button id="btnCenter">Re-centre</button>
         <button id="btnClear">Remove fabric</button>
-      </div>
-      <div class="btnrow">
-        <button id="btnEditFab">Edit colour</button>
-        <button id="btnDelFab" class="danger">Delete fabric</button>
       </div>
     </div>
 
@@ -107,7 +113,8 @@
         <button id="btnBg" class="toggle">Ignore outside area</button>
       </div>
       <div class="row cm">
-        <label>Real width of pattern image <input id="patCm" type="number" min="1" step="0.5" inputmode="decimal" placeholder="cm"> cm</label>
+        <label>Real width of pattern image <input id="patCm" type="number" inputmode="decimal"> <span class="unitLabel">cm</span></label>
+        <span class="seg"><button data-unit="cm">cm</button><button data-unit="in">in</button></span>
       </div>
       <p class="muted small">If shapes merge or split wrongly, tweak the threshold. Real widths let you set fabric size in true scale.</p>
       <div id="shapeCount" class="muted small"></div>

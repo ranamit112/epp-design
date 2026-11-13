@@ -469,22 +469,42 @@ const scToSlider = s => Math.round(1000 * Math.log(s / SC_MIN) / Math.log(SC_MAX
 const sliderToSc = v => SC_MIN * Math.pow(SC_MAX / SC_MIN, v / 1000);
 const pxPerCm = () => (P.patCm ? seg.w / P.patCm : 0);
 
+// units: lengths are stored in cm; the display unit (cm or inches) is a per-device preference
+let unit = (() => { try { const u = localStorage.getItem('unit'); if (u) return u; } catch {} return /^en-US/i.test(navigator.language || '') ? 'in' : 'cm'; })();
+const toUnit = cm => (unit === 'in' ? cm / 2.54 : cm);
+const fromUnit = v => (unit === 'in' ? v * 2.54 : v);
+const fmtLen = cm => (cm ? String(+toUnit(cm).toFixed(unit === 'in' ? 2 : 1)) : '');
+$$('[data-unit]').forEach(b => b.onclick = () => {
+  unit = b.dataset.unit; try { localStorage.setItem('unit', unit); } catch {}
+  refreshUI();
+});
+function setFabSettings(open) {
+  $('#fabSettings').classList.toggle('hidden', !open);
+  $('#btnFabSettings').classList.toggle('on', open);
+  $('#btnFabSettings').textContent = open ? '⚙ Fabric settings (size, delete) ▾' : '⚙ Fabric settings (size, delete) ▸';
+}
+$('#btnFabSettings').onclick = () => setFabSettings($('#fabSettings').classList.contains('hidden'));
+
 function refreshUI() {
   if (!P) return;
   renderTray();
   const f = activeFabric && fabById(activeFabric);
   const hasSel = [...sel].some(id => curVariant().assign[id]);
   $('#rot').value = selRot(); $('#rotVal').textContent = Math.round(selRot()) + '°';
+  if (refreshUI.last !== activeFabric) { setFabSettings(false); refreshUI.last = activeFabric; }   // settings stay closed until asked for
+  $('#fabBox').classList.toggle('hidden', !f);
   $('#scaleBox').classList.toggle('hidden', !(f && f.type === 'photo'));
   $('#btnEditFab').classList.toggle('hidden', !(f && f.type === 'color'));
-  $('#btnDelFab').classList.toggle('hidden', !f);
   $('#btnClear').disabled = !hasSel;
+  $$('.unitLabel').forEach(e => { e.textContent = unit === 'in' ? 'in' : 'cm'; });
+  $$('[data-unit]').forEach(b => b.classList.toggle('on', b.dataset.unit === unit));
+  for (const i of [$('#fabCm'), $('#patCm')]) { i.step = unit === 'in' ? 0.25 : 0.5; i.min = 0; }
   if (f && f.type === 'photo') {
     $('#scale').value = scToSlider(f.scale);
     const ppc = pxPerCm();
     $('#scaleVal').textContent = Math.round(f.scale * 100) + '%';
-    $('#fabCm').value = ppc ? +(f.scale * f.w / ppc).toFixed(1) : '';
-    $('#cmHint').textContent = ppc ? '' : 'Set the pattern width (Pattern tab) to use cm';
+    $('#fabCm').value = ppc ? fmtLen(f.scale * f.w / ppc) : '';
+    $('#cmHint').textContent = ppc ? '' : 'To enter a real size, first set the real width of the pattern image in the Pattern tab.';
     $('#fabCm').disabled = !ppc;
   }
   $('#btnMove').classList.toggle('on', moveMode);
@@ -492,7 +512,7 @@ function refreshUI() {
   $('#btnBg').classList.toggle('on', !!P.dropBg);
   $('#thr').value = P.thr; $('#thrVal').textContent = P.thr;
   $('#minArea').value = P.minArea; $('#minVal').textContent = P.minArea;
-  $('#patCm').value = P.patCm || '';
+  $('#patCm').value = fmtLen(P.patCm);
   $('#shapeCount').textContent = `${seg.regions.length} shapes detected`;
   $('#title').textContent = P.name;
 }
@@ -503,6 +523,7 @@ $$('.tabs button[data-tab]').forEach(b => b.onclick = () => {
   if (b.classList.contains('on') && !sideLayout) { setCollapsed(!sheet.classList.contains('collapsed')); return; }
   $$('.tabs button[data-tab]').forEach(x => x.classList.toggle('on', x === b));
   $$('.panel').forEach(p => p.classList.toggle('hidden', p.id !== 'tab-' + b.dataset.tab));
+  setFabSettings(false);
   setCollapsed(false);
 });
 function setCollapsed(c) {
@@ -550,15 +571,15 @@ $('#scale').addEventListener('input', e => {
   const f = fabById(activeFabric); if (!f) return;
   f.scale = sliderToSc(+e.target.value);
   $('#scaleVal').textContent = Math.round(f.scale * 100) + '%';
-  const ppc = pxPerCm(); if (ppc) $('#fabCm').value = +(f.scale * f.w / ppc).toFixed(1);
+  const ppc = pxPerCm(); if (ppc) $('#fabCm').value = fmtLen(f.scale * f.w / ppc);
   dirty();
 });
 $('#fabCm').addEventListener('change', e => {
-  const f = fabById(activeFabric), cm = +e.target.value, ppc = pxPerCm();
+  const f = fabById(activeFabric), cm = fromUnit(+e.target.value), ppc = pxPerCm();
   if (!f || !ppc || !(cm > 0)) return;
   snapshot(); f.scale = Math.min(SC_MAX, Math.max(SC_MIN, cm * ppc / f.w)); refreshUI(); dirty();
 });
-$('#patCm').addEventListener('change', e => { P.patCm = +e.target.value || 0; refreshUI(); scheduleSave(); });
+$('#patCm').addEventListener('change', e => { P.patCm = fromUnit(+e.target.value) || 0; refreshUI(); scheduleSave(); });
 $('#btnMove').onclick = () => { moveMode = !moveMode; refreshUI(); toast(moveMode ? 'Drag on the pattern to slide the fabric in selected shapes' : 'Drag pans the view'); };
 $('#btnCenter').onclick = () => { snapshot(); const v = curVariant(); for (const id of sel) if (v.assign[id]) { v.assign[id].dx = 0; v.assign[id].dy = 0; } dirty(); };
 $('#btnClear').onclick = () => { snapshot(); const v = curVariant(); for (const id of sel) delete v.assign[id]; refreshUI(); dirty(); };
@@ -610,7 +631,7 @@ async function addPhotoFabric(file) {
   const f = { id: uid(), type: 'photo', img: c.toDataURL('image/jpeg', 0.88), w: c.width, h: c.height, scale: Math.min(SC_MAX, Math.max(SC_MIN, med * 6 / c.width)) };
   P.fabrics.push(f); await loadFabricImage(f);
   chooseFabric(f.id); scheduleSave();
-  toast('Fabric added – adjust size/rotation in the Adjust tab');
+  toast('Fabric added – rotate it in the Adjust tab; size is under ⚙ Fabric settings');
 }
 $('#fileCam').onchange = async e => { await addPhotoFabric(e.target.files[0]); e.target.value = ''; };
 $('#fileGal').onchange = async e => { await addPhotoFabric(e.target.files[0]); e.target.value = ''; };

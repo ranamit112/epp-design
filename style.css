@@ -94,3 +94,13 @@ dialog.full[open]{display:flex;flex-direction:column}
 #editor.side>.selbar{grid-area:selbar}
 #editor.side>.sheet{grid-area:sheet;max-height:none;min-height:0;border-top:0;border-left:1px solid var(--line)}
 #editor.side .panel{flex:1;min-height:0}
+
+.fabbox{margin:4px 0 8px}
+.fabbox>button{width:100%;justify-content:flex-start}
+#fabSettings{margin-top:8px;padding:8px;border:1px dashed var(--line);border-radius:10px}
+.seg{display:inline-flex;flex:none}
+.seg button{min-height:34px;padding:2px 12px;border-radius:0}
+.seg button:first-child{border-radius:8px 0 0 8px}
+.seg button:last-child{border-radius:0 8px 8px 0;border-left:0}
+.seg button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.cm input{width:84px}
